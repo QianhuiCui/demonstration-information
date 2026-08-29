@@ -1,0 +1,24 @@
+boxLift:  # verified against Downloads/trajectories_symdex/boxLift
+  obs_dim: 137
+  pos_eps: 1.0e-3
+  right:
+    ee_pos: [0, 3]
+    grasp_ref: [[68, 71]]      # box_pos_right: the box's approach point for this hand
+  left:
+    ee_pos: [28, 31]
+    grasp_ref: [[80, 83]]      # box_pos_left
+  # threshold scales with the box's own size instead of a fixed constant,
+  # since box dimensions vary across episodes.
+  grasp_threshold_obs_idx: 92  # box_length
+  grasp_threshold_scale: 0.6
+
+pickObject:  # verified against Downloads/trajectories_symdex/pickObject
+  obs_dim: 106
+  pos_eps: 1.0e-3
+  right:
+    ee_pos: [0, 3]
+    grasp_ref: [[28, 31]]      # object_pos_1 (right hand's pick target)
+  left:
+    ee_pos: [31, 34]
+    grasp_ref: [[59, 62]]      # object_pos_2 (left hand's pick target)
+  grasp_threshold: 0.05        # meters; no size observation available here
