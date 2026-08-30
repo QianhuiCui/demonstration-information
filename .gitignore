@@ -1,3 +1,5 @@
+bicoord_metrics/plots
+.vscode/
 # Custom Ignores
 wandb/
 _*.json

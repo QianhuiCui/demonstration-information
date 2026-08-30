@@ -1,0 +1,22 @@
+boxLift:
+  obs_dim: 137
+  action_dim: 44
+  language_instruction: "Lift the box together with both hands."
+  state_slices:
+    right_ee_pos: [0, 3]
+    right_ee_rot: [3, 12]
+    right_hand: [12, 28]
+    left_ee_pos: [28, 31]
+    left_ee_rot: [31, 40]
+    left_hand: [40, 56]
+    misc: [[56, 68], [92, 93]] 
+  action_slices:
+    right_arm: [0, 6]
+    right_hand: [6, 22]
+    left_arm: [22, 28]
+    left_hand: [28, 44]
+
+# pickObject:
+#   obs_dim: 106
+#   action_dim: 44
+#   language_instruction: "Pick up the two objects and place them in the tote."

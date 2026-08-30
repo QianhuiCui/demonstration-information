@@ -13,6 +13,7 @@ class StateEncoding(StrEnum):
     JOINT_POS = "JOINT_POS"  # 7 x joint
     JOINT_VEL = "JOINT_VEL"  # 7 x joint
     GRIPPER = "GRIPPER"  # 1 x gripper open / close.
+    HAND_POS = "HAND_POS"  # 16 * 2 dexterous hand pos
     EE_VEL_LIN = "EE_VEL_LIN"
     EE_VEL_ANG = "EE_VEL_ANG"
     MISC = "MISC"  # Other miscellaneous objects
@@ -32,6 +33,7 @@ class RobotType(StrEnum):
     XARM = "XARM"
     STRETCH = "STRETCH"
     ALOHA = "ALOHA"
+    UF_ALLEGRO = "UF_ALLEGRO"  #  for symdex
     UNKNOWN = "UNKNOWN"
 
 
