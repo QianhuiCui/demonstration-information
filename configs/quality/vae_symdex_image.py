@@ -37,9 +37,9 @@ def get_config(config_str="boxLift,s,1"):
     }[config_type]
 
     z_dim = {
-        "s": 32,   # ~half of the corrected raw 63-dim state (6+12+32+13)
-        "a": 22,   # ~half of the raw 44-dim action (unaffected by the MISC fix)
-        "sa": 54,  # = 32 + 22
+        "s": 32,   # boxLift: 63-dim state (6+12+32+13) / 2
+        "a": 22,   # half of the raw 44-dim action (unaffected by the MISC fix)
+        "sa": 54,  # boxLift
     }[config_type]
 
     weights = {
@@ -69,7 +69,7 @@ def get_config(config_str="boxLift,s,1"):
     dataloader = dict(
         datasets={
             task: dict(
-                path="path/to/symdex_rlds/{task}/1.0.0".format(task=task),  # fill in after tfds build
+                path="/home/qianhui/deminf/symdex_rlds/sym_dex/{task}/1.0.0".format(task=task),
                 train_split="train",
                 val_split="val",
                 transform=ModuleSpec.create(symdex_dataset_transform, task=task),
@@ -114,10 +114,10 @@ def get_config(config_str="boxLift,s,1"):
             dataloader=dataloader,
             optimizer=optimizer,
             lr_schedule=lr_schedule,
-            steps=100000,
+            steps=25000,   # based on dataset size
             log_freq=500,
             val_freq=2500,
-            save_freq=10000,
+            save_freq=2500,
             val_steps=25,
             seed=seed,
         )

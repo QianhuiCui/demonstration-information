@@ -44,6 +44,11 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
 
     VERSION = tfds.core.Version("1.0.0")
     RELEASE_NOTES = {"1.0.0": "Initial release."}
+    MANUAL_DOWNLOAD_INSTRUCTIONS = (
+        "Point --manual_dir at a task's trajectory root (e.g. trajectories_symdex/boxLift), "
+        "which must contain expert/okay/poor quality-tier subfolders, each holding *.h5 files."
+    )
+
 
     BUILDER_CONFIGS = _load_builder_configs()
 
@@ -102,6 +107,7 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
 
     def _generate_examples(self, paths) -> Iterator[Tuple[str, Any]]:
         cfg = self.builder_config
+        ep_idx = 0
         for file_path, quality_score in paths:
             with h5py.File(file_path, "r") as f:
                 for episode_key in f.keys():
@@ -126,6 +132,7 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
                                             is_terminal=bool(terminals[t]),
                                             language_instruction=cfg.language_instruction,))
                     metadata = dict(file_path=file_path,
-                                    ep_idx=int(episode_key.split("_")[-1]),
+                                    ep_idx=ep_idx,
                                     quality_score=quality_score,)
+                    ep_idx += 1
                     yield f"{os.path.basename(file_path)}_{episode_key}", dict(steps=episode, episode_metadata=metadata)
