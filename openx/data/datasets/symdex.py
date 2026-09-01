@@ -60,3 +60,30 @@ def symdex_dataset_transform(ep: Dict, task: str):
     ep["ep_idx"] = ep["episode_metadata"]["ep_idx"]
     ep["quality_score"] = ep["episode_metadata"]["quality_score"]
     return ep
+
+
+def symdex_lr_dataset_transform(ep: Dict, task: str):
+    s = _load_tasks(task)["state_slices"]
+    obs = ep["observation"]["state"]
+
+    state_l = {
+        "state": {
+            StateEncoding.EE_POS:   obs[..., _slice(s["left_ee_pos"])],
+            StateEncoding.EE_ROT6D: _rot6d(obs[..., _slice(s["left_ee_rot"])]),
+            StateEncoding.HAND_POS: obs[..., _slice(s["left_hand"])],
+        },
+    }
+    state_r = {
+        "desired_delta": {
+            StateEncoding.EE_POS:   obs[..., _slice(s["right_ee_pos"])],
+            StateEncoding.EE_ROT6D: _rot6d(obs[..., _slice(s["right_ee_rot"])]),
+            StateEncoding.HAND_POS: obs[..., _slice(s["right_hand"])],
+        },
+    }
+
+    ep["observation"] = state_l
+    ep["action"] = state_r
+    ep["robot"] = RobotType.UF_ALLEGRO
+    ep["ep_idx"] = ep["episode_metadata"]["ep_idx"]
+    ep["quality_score"] = ep["episode_metadata"]["quality_score"]
+    return ep
