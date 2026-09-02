@@ -1,4 +1,5 @@
 bicoord_metrics/plots
+rlds/symdex/*.npz
 .vscode/
 # Custom Ignores
 wandb/

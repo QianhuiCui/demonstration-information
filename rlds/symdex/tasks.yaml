@@ -15,8 +15,29 @@ boxLift:
     right_hand: [6, 22]
     left_arm: [22, 28]
     left_hand: [28, 44]
+  z_dim:
+    s: 32  # boxLift: 63-dim state (6+12+32+13) / 2
+    a: 22
+    sa: 54
 
-# pickObject:
-#   obs_dim: 106
-#   action_dim: 44
-#   language_instruction: "Pick up the two objects and place them in the tote."
+pickObject:
+  obs_dim: 106
+  action_dim: 44
+  language_instruction: "Pick up the two objects and place them in the tote."
+  state_slices:
+    right_ee_pos: [0, 3]
+    right_ee_rot: [3, 12]
+    right_hand: [12, 28]
+    left_ee_pos: [31, 34]
+    left_ee_rot: [34, 43]
+    left_hand: [43, 59]
+    misc: [[28, 31], [59, 62]]
+  action_slices:
+    right_arm: [0, 6]
+    right_hand: [6, 22]
+    left_arm: [22, 28]
+    left_hand: [28, 44]
+  z_dim:
+    s: 28   # half of pickObject's raw 56-dim state (6+12+32+6 -- MISC is only object_pos_1+object_pos_2)
+    a: 22   
+    sa: 50  # = 28 + 22

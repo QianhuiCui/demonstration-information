@@ -30,9 +30,9 @@ def get_config(config_str="boxLift,s,1"):
         "sa": {"observation->state": None, "action": None},
     }[config_type]
     z_dim = {  # per-arm state is 25-dim (EE_POS 3 + EE_ROT6D 6 + HAND_POS 16)
-        "s": 12,
-        "a": 12,
-        "sa": 24,
+        "s": 8,
+        "a": 8,
+        "sa": 16,
     }[config_type]
     seed = int(seed)
 
@@ -42,14 +42,14 @@ def get_config(config_str="boxLift,s,1"):
             "state": {
                 StateEncoding.EE_POS: NormalizationType.GAUSSIAN,
                 StateEncoding.EE_ROT6D: NormalizationType.GAUSSIAN,
-                StateEncoding.HAND_POS: NormalizationType.GAUSSIAN,
+                # StateEncoding.HAND_POS: NormalizationType.GAUSSIAN,
             },
         },
         "action": {
             "desired_delta": {
                 StateEncoding.EE_POS: NormalizationType.GAUSSIAN,
                 StateEncoding.EE_ROT6D: NormalizationType.GAUSSIAN,
-                StateEncoding.HAND_POS: NormalizationType.GAUSSIAN,
+                # StateEncoding.HAND_POS: NormalizationType.GAUSSIAN,
             },
         },
     }
@@ -60,7 +60,10 @@ def get_config(config_str="boxLift,s,1"):
                 path="/home/qianhui/deminf/symdex_rlds/sym_dex/{task}/1.0.0".format(task=task),
                 train_split="train",
                 val_split="val",
-                transform=ModuleSpec.create(symdex_lr_dataset_transform, task=task),
+                transform=ModuleSpec.create(
+                    symdex_lr_dataset_transform, task=task,
+                    # hand_pca="rlds/symdex/hand_pca_{task}_k6.npz".format(task=task),
+                ),
             ),
         },
         n_obs=1,
@@ -78,16 +81,16 @@ def get_config(config_str="boxLift,s,1"):
             MultiEncoder,
             encoders=vae_keys,
             trunk=ModuleSpec.create(
-                Concatenate, model=ModuleSpec.create(MLP, [512, 512], activate_final=True), flatten_time=True
+                Concatenate, model=ModuleSpec.create(MLP, [128, 128], activate_final=True), flatten_time=True
             ),
         ),
         decoder=ModuleSpec.create(
             MultiDecoder,
-            trunk=ModuleSpec.create(MLP, [512, 512], activate_final=True),
+            trunk=ModuleSpec.create(MLP, [128, 128], activate_final=True),
             decoders=vae_keys,
         ),
         z_dim=z_dim,
-        beta=0.1,
+        beta=0.05,
     )
 
     lr_schedule = ModuleSpec.create(optax.constant_schedule, 0.0001)
@@ -100,10 +103,10 @@ def get_config(config_str="boxLift,s,1"):
             dataloader=dataloader,
             optimizer=optimizer,
             lr_schedule=lr_schedule,
-            steps=25000,   # based on dataset size
-            log_freq=500,
-            val_freq=2500,
-            save_freq=2500,
+            steps=5000,   # based on dataset size
+            log_freq=100,
+            val_freq=250,
+            save_freq=250,
             val_steps=25,
             seed=seed,
         )

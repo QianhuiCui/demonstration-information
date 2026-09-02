@@ -3,7 +3,7 @@ import tensorflow as tf
 from ml_collections import ConfigDict
 
 from openx.algs.beta_vae import BetaVAE
-from openx.data.datasets.symdex import symdex_dataset_transform
+from openx.data.datasets.symdex import _load_tasks, symdex_dataset_transform
 from openx.data.utils import NormalizationType, StateEncoding
 from openx.networks.components.mlp import MLP
 from openx.networks.components.resnet import ResNet18, ResNet18Decoder
@@ -15,6 +15,7 @@ def get_config(config_str="boxLift,s,1"):
     task, config_type, seed = config_str.split(",")
     seed = int(seed)
     assert config_type in {"s", "a", "sa"}
+    task_cfg = _load_tasks(task)
 
     encoder_keys = {
         "s": {"observation->state": None, "observation->image->agent": ModuleSpec.create(ResNet18, num_kp=64)},
@@ -36,11 +37,12 @@ def get_config(config_str="boxLift,s,1"):
         },
     }[config_type]
 
-    z_dim = {
-        "s": 32,   # boxLift: 63-dim state (6+12+32+13) / 2
-        "a": 22,   # half of the raw 44-dim action (unaffected by the MISC fix)
-        "sa": 54,  # boxLift
-    }[config_type]
+    # z_dim = {
+    #     "s": 32,   # boxLift: 63-dim state (6+12+32+13) / 2
+    #     "a": 22,   # half of the raw 44-dim action (unaffected by the MISC fix)
+    #     "sa": 54,  # boxLift
+    # }[config_type]
+    z_dim = task_cfg["z_dim"][config_type]
 
     weights = {
         "s": {"observation->state": 1.0, "observation->image->agent": 1 / 200},
