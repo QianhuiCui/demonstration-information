@@ -41,3 +41,69 @@ pickObject:
     s: 28   # half of pickObject's raw 56-dim state (6+12+32+6 -- MISC is only object_pos_1+object_pos_2)
     a: 22   
     sa: 50  # = 28 + 22
+
+insertDrawer:
+  obs_dim: 116
+  action_dim: 44
+  language_instruction: "Pick up the object, place it into the drawer, and close the drawer."
+  state_slices:
+    right_ee_pos: [0, 3]
+    right_ee_rot: [3, 12]
+    right_hand: [12, 28]
+    left_ee_pos: [31, 34]
+    left_ee_rot: [34, 43]
+    left_hand: [43, 59]
+    misc: [[28, 31], [59, 72]]  # object_pos + drawer_handle_pose (pos+rot) + drawer_joint_pos
+  action_slices:
+    right_arm: [0, 6]
+    right_hand: [6, 22]
+    left_arm: [22, 28]
+    left_hand: [28, 44]
+  z_dim:
+    s: 33   # half of insertDrawer's raw 66-dim state (6+12+32+16)
+    a: 22
+    sa: 55  # = 33 + 22
+  
+pouring:
+  obs_dim: 115
+  action_dim: 44
+  language_instruction: "Pick up the cup with the right hand, push the bowl under the cup with the left hand, and pour."
+  state_slices:
+    right_ee_pos: [0, 3]
+    right_ee_rot: [3, 12]
+    right_hand: [12, 28]
+    left_ee_pos: [28, 31]
+    left_ee_rot: [31, 40]
+    left_hand: [40, 56]
+    misc: [[56, 71]]  # cup_pos (3) + cup_rot (9) + bowl_pos (3)
+  action_slices:
+    right_arm: [0, 6]
+    right_hand: [6, 22]
+    left_arm: [22, 28]
+    left_hand: [28, 44]
+  z_dim:
+    s: 33   # half of pouring's raw 65-dim state (6+12+32+15)
+    a: 22
+    sa: 55  # = 33 + 22
+
+threading:
+  obs_dim: 124
+  action_dim: 44
+  language_instruction: "Pick up the cube with the right hand and the drill with the left hand, and thread them together."
+  state_slices:
+    right_ee_pos: [0, 3]
+    right_ee_rot: [3, 12]
+    right_hand: [12, 28]
+    left_ee_pos: [28, 31]
+    left_ee_rot: [31, 40]
+    left_hand: [40, 56]
+    misc: [[56, 80]]  # cube_pos (3) + cube_rot (9) + drill_pos (3) + drill_rot (9)
+  action_slices:
+    right_arm: [0, 6]
+    right_hand: [6, 22]
+    left_arm: [22, 28]
+    left_hand: [28, 44]
+  z_dim:
+    s: 37   # half of threading's raw 74-dim state (6+12+32+24)
+    a: 22
+    sa: 59  # = 37 + 22
