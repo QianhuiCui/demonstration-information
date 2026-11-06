@@ -5,19 +5,13 @@ import h5py
 import numpy as np
 import yaml
 from absl import app, flags
+from matplotlib import pyplot as plt
 
-from bicoord_core import (_load_task_config, _episode_masks, reduce_metrics,
-                          compute_windowed_sti)
+from bicoord_core import _load_task_config, _episode_masks, reduce_metrics, compute_windowed_sti
 
 FLAGS = flags.FLAGS
-flags.DEFINE_string(
-    "data_dir", None,
-    "Task root folder containing quality-tier subfolders (e.g. .../boxLift, which holds "
-    "expert/okay/poor). If none of --splits exist under it, --data_dir itself is treated "
-    "as a single split.",
-    required=True,
-)
-flags.DEFINE_list("splits", ["expert", "okay", "poor"], "Quality-tier subfolder names to look for under --data_dir.")
+flags.DEFINE_string("data_dir", None, "Task root holding expert/okay/poor/mixture subfolders.", required=True)
+flags.DEFINE_list("splits", ["expert", "okay", "poor", "mixture"], "Quality-tier subfolder names to look for under --data_dir.")
 flags.DEFINE_bool("verbose", False, "Print per-episode metrics in addition to the per-split aggregate.")
 flags.DEFINE_string("task", None, "Task name; must be a key in --config.", required=True)
 flags.DEFINE_string(
@@ -27,18 +21,10 @@ flags.DEFINE_string(
 )
 flags.DEFINE_integer("window_size", 20, "Sliding-window length (timesteps) for the windowed STI curve.")
 flags.DEFINE_integer("window_stride", 5, "Stride between consecutive windows.")
-flags.DEFINE_string(
-    "plot_dir", None,
-    "If set, save one PNG per split with per-episode windowed-STI curves (x-axis = fraction of "
-    "episode completed) plus the split's mean curve -- useful for spotting a localized "
-    "coordination dip (e.g. around a drop-and-recover event) that a single trajectory-level "
-    "STI number averages away.",
-)
+flags.DEFINE_string("plot_dir", None,  "If set, save per-split windowed-STI plots here.")
 
 
 def _plot_windowed_sti(curves_by_split: dict, plot_dir: str, task: str):
-    from matplotlib import pyplot as plt
-
     os.makedirs(plot_dir, exist_ok=True)
     grid = np.linspace(0, 1, 50)
 

@@ -2,63 +2,42 @@ import numpy as np
 import yaml
 
 
-def _slice(bounds) -> slice:
+def _slice(bounds):
     return slice(bounds[0], bounds[1])
 
 
-def _load_task_config(path: str, task: str) -> dict:
+def _load_task_config(path: str, task: str):
     with open(path, "r") as f:
         all_tasks = yaml.safe_load(f)
     assert task in all_tasks, f"Unknown task '{task}'. Options: {list(all_tasks.keys())}"
     cfg = all_tasks[task]
-    # PyYAML's safe_load only parses e.g. "5.0e-3" as a float, not "5e-3" (no decimal point) --
-    # cast explicitly so a YAML typo fails loudly here instead of deep inside numpy.
-    for key in ("pos_eps", "grasp_threshold", "grasp_threshold_scale"):
-        if key in cfg:
-            cfg[key] = float(cfg[key])
+    cfg["pos_eps"] = float(cfg["pos_eps"])
+    for side in ("left", "right"):
+        cfg[side]["grasp_threshold"] = float(cfg[side]["grasp_threshold"])
     return cfg
 
 
-def _movement_mask(pos: np.ndarray, pos_eps: float) -> np.ndarray:
-    moving = np.linalg.norm(np.diff(pos, axis=0), axis=-1) > pos_eps
-    return np.concatenate([[False], moving])  # no previous timestep to compare the first frame to.
-
-
-def _holding_mask(palm_pos: np.ndarray, grasp_ref_slices: list, threshold) -> np.ndarray:
-    # threshold may be a scalar or a per-timestep array (e.g. scaled by box size).
-    dists = [np.linalg.norm(palm_pos - obs_slice, axis=-1) for obs_slice in grasp_ref_slices]
-    min_dist = np.min(np.stack(dists, axis=0), axis=0)
-    return min_dist < threshold
-
-
-def _episode_masks(policy_obs: np.ndarray, task_cfg: dict):
-    """Computes the per-timestep `dist` and `both_moving` arrays shared by the trajectory-level
-    metrics and the windowed STI curve, so the two stay consistent."""
+def _episode_masks(policy_obs, task_cfg, per_arm=False):
     assert policy_obs.shape[-1] == task_cfg["obs_dim"], (
-        f"Expected obs_dim {task_cfg['obs_dim']} from tasks.yaml, got {policy_obs.shape[-1]}. "
-        "The obs layout for this task is likely wrong -- check tasks.yaml against env_cfg.py."
+        f"Expected obs_dim {task_cfg['obs_dim']} from tasks.yaml, got  {policy_obs.shape[-1]}."
     )
+    ee, active = {}, {}
+    for side in ("left", "right"):
+        hand = task_cfg[side]
+        ee[side] = policy_obs[:, _slice(hand["ee_pos"])]
+        moving = np.linalg.norm(np.diff(ee[side], axis=0), axis=-1) > task_cfg["pos_eps"]
+        moving= np.concatenate([[False], moving])  # first timestep has no diff
+        obj_dist = np.min([np.linalg.norm(ee[side] - policy_obs[:, _slice(obj)], axis=-1) for obj in hand["obj_pos"]], axis=0)
+        active[side] = moving | (obj_dist < hand["grasp_threshold"])
 
-    right_pos = policy_obs[:, _slice(task_cfg["right"]["ee_pos"])]
-    left_pos = policy_obs[:, _slice(task_cfg["left"]["ee_pos"])]
-
-    rel_dist = np.linalg.norm(left_pos - right_pos, axis=-1)
+    rel_dist = np.linalg.norm(ee["left"] - ee["right"], axis=-1)
     dist = rel_dist / rel_dist[0]
-
-    if "grasp_threshold_obs_idx" in task_cfg:
-        threshold = policy_obs[0, task_cfg["grasp_threshold_obs_idx"]] * task_cfg["grasp_threshold_scale"]
-    else:
-        threshold = task_cfg["grasp_threshold"]
-
-    right_refs = [policy_obs[:, _slice(b)] for b in task_cfg["right"]["grasp_ref"]]
-    left_refs = [policy_obs[:, _slice(b)] for b in task_cfg["left"]["grasp_ref"]]
-
-    m_right = _movement_mask(right_pos, task_cfg["pos_eps"]) | _holding_mask(right_pos, right_refs, threshold)
-    m_left = _movement_mask(left_pos, task_cfg["pos_eps"]) | _holding_mask(left_pos, left_refs, threshold)
-    return dist, m_left & m_right
+    if per_arm:
+        return dist, active["left"], active["right"]
+    return dist, active["left"] & active["right"]
 
 
-def reduce_metrics(dist: np.ndarray, both_moving: np.ndarray, length: int) -> dict:
+def reduce_metrics(dist: np.ndarray, both_moving: np.ndarray, length: int):
     return {
         "ARD": 100 * dist.mean(),
         "MRD": 100 * dist.min(),
@@ -68,7 +47,7 @@ def reduce_metrics(dist: np.ndarray, both_moving: np.ndarray, length: int) -> di
     }
 
 
-def compute_episode_metrics(policy_obs: np.ndarray, task_cfg: dict) -> dict:
+def compute_episode_metrics(policy_obs: np.ndarray, task_cfg: dict):
     dist, both_moving = _episode_masks(policy_obs, task_cfg)
     return reduce_metrics(dist, both_moving, len(policy_obs))
 
