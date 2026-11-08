@@ -7,9 +7,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow_datasets as tfds
 
-# Higher = better; folder name -> quality score. Matches the convention robomimic's builder
-# uses for its "better"/"okay"/"worse" masks.
-QUALITY_SCORES = {"expert": 3.0, "okay": 2.0, "poor": 1.0}
+QUALITY_SCORES = {"expert": 3.0, "okay": 2.0, "mixture": 1.5, "poor": 1.0}
 _TASK_YAML = os.path.join(os.path.dirname(__file__), "tasks.yaml")
 VAL_FRACTION = 0.1
 SPLIT_SEED = 0
@@ -24,19 +22,19 @@ def _load_builder_configs():
             task=task_name,
             obs_dim=cfg["obs_dim"],
             action_dim=cfg["action_dim"],
-            language_instruction=cfg["language_instruction"],
+            # language_instruction=cfg["language_instruction"],
         )
         for task_name, cfg in tasks.items()
     ]
 
 
 class SymDexConfig(tfds.core.BuilderConfig):
-    def __init__(self, *, task: str, obs_dim: int, action_dim: int, language_instruction: str, **kwargs):
+    def __init__(self, *, task: str, obs_dim: int, action_dim: int, **kwargs):
         super().__init__(**kwargs)
         self.task = task
         self.obs_dim = obs_dim
         self.action_dim = action_dim
-        self.language_instruction = language_instruction
+        # self.language_instruction = language_instruction
 
 
 class SymDex(tfds.core.GeneratorBasedBuilder):
@@ -45,10 +43,9 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
     VERSION = tfds.core.Version("1.0.0")
     RELEASE_NOTES = {"1.0.0": "Initial release."}
     MANUAL_DOWNLOAD_INSTRUCTIONS = (
-        "Point --manual_dir at a task's trajectory root (e.g. trajectories_symdex/boxLift), "
-        "which must contain expert/okay/poor quality-tier subfolders, each holding *.h5 files."
+        "Point --manual_dir at a task's trajectory root (e.g. trajectories_symdex/pickObject), "
+        "which must contain expert/okay/poor/mixture quality-tier subfolders, each holding *.h5 files."
     )
-
 
     BUILDER_CONFIGS = _load_builder_configs()
 
@@ -81,7 +78,8 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
                         {
                             "file_path": tfds.features.Text(doc="Path to the original .h5 file."),
                             "ep_idx": tfds.features.Scalar(dtype=np.int32),
-                            "quality_score": tfds.features.Scalar(dtype=np.float32, doc="3=expert, 2=okay, 1=poor"),
+                            "operator": tfds.features.Scalar(dtype=np.int32),
+                            "quality_score": tfds.features.Scalar(dtype=np.float32, doc="3=expert, 2=okay, 1=poor, 1.5=mixture"),
                         }),
                 }
             )
@@ -111,6 +109,9 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
         for file_path, quality_score in paths:
             with h5py.File(file_path, "r") as f:
                 for episode_key in f.keys():
+                    meta=f[episode_key].get("epi_meta")
+                    operator = int(meta.attrs["operator"]) if meta is not None and "operator" in meta.attrs else -1
+                    lang = meta.attrs.get("language_instruction", "") if meta is not None else ""
                     data = f[episode_key]["offline_data"]
                     policy_obs = data["observations"]["policy"][:].astype(np.float32)
                     vision_obs = data["observations"]["vision"][:]
@@ -130,9 +131,10 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
                                             is_first=t == 0,
                                             is_last=t == length - 1,
                                             is_terminal=bool(terminals[t]),
-                                            language_instruction=cfg.language_instruction,))
+                                            language_instruction=lang,))
                     metadata = dict(file_path=file_path,
                                     ep_idx=ep_idx,
-                                    quality_score=quality_score,)
+                                    quality_score=quality_score,
+                                    operator=operator)
                     ep_idx += 1
                     yield f"{os.path.basename(file_path)}_{episode_key}", dict(steps=episode, episode_metadata=metadata)

@@ -79,6 +79,7 @@ def symdex_dataset_transform(ep: Dict, task: str):
     ep["action"] = action
     ep["robot"] = RobotType.UF_ALLEGRO
     ep["ep_idx"] = ep["episode_metadata"]["ep_idx"]
+    ep["operator"] = ep["episode_metadata"]["operator"]
     ep["quality_score"] = ep["episode_metadata"]["quality_score"]
     return ep
 
@@ -106,5 +107,6 @@ def symdex_lr_dataset_transform(ep: Dict, task: str, hand_pca: str | None = None
     ep["action"] = state_r
     ep["robot"] = RobotType.UF_ALLEGRO
     ep["ep_idx"] = ep["episode_metadata"]["ep_idx"]
+    ep["operator"] = ep["episode_metadata"]["operator"]
     ep["quality_score"] = ep["episode_metadata"]["quality_score"]
     return ep

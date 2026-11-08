@@ -25,7 +25,7 @@ flags.DEFINE_bool("verbose", True, "print per-episode metrics as well as the per
 flags.DEFINE_integer("window", 20, "windowed-STI window length (frames); matches bicoord_metrics.py.")
 flags.DEFINE_integer("stride", 5, "windowed-STI stride (frames); matches bicoord_metrics.py.")
 
-_TIER = {3.0: "expert", 2.0: "okay", 1.0: "poor"}
+_TIER = {3.0: "expert", 2.0: "okay", 1.5: "mixture", 1.0: "poor"}
 _KEYS = ["ARD", "MRD", "SMP", "STI", "length"]
 
 
@@ -68,7 +68,7 @@ def main(_):
         print()
 
     print("per-tier mean +/- std (scalars -- see ds_viewer §2c for the windowed profile):")
-    for tier in (3.0, 2.0, 1.0):
+    for tier in (3.0, 2.0,1.5, 1.0):
         idx = [e for e in order if rows[e]["quality"] == tier]
         if not idx:
             continue

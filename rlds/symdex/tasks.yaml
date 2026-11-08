@@ -1,29 +1,29 @@
-boxLift:
-  obs_dim: 137
-  action_dim: 44
-  language_instruction: "Lift the box together with both hands."
-  state_slices:
-    right_ee_pos: [0, 3]
-    right_ee_rot: [3, 12]
-    right_hand: [12, 28]
-    left_ee_pos: [28, 31]
-    left_ee_rot: [31, 40]
-    left_hand: [40, 56]
-    misc: [[56, 68], [92, 93]] 
-  action_slices:
-    right_arm: [0, 6]
-    right_hand: [6, 22]
-    left_arm: [22, 28]
-    left_hand: [28, 44]
-  z_dim:
-    s: 32  # boxLift: 63-dim state (6+12+32+13) / 2
-    a: 22
-    sa: 54
+# boxLift:
+#   obs_dim: 137
+#   action_dim: 44
+#   language_instruction: "Lift the box together with both hands."
+#   state_slices:
+#     right_ee_pos: [0, 3]
+#     right_ee_rot: [3, 12]
+#     right_hand: [12, 28]
+#     left_ee_pos: [28, 31]
+#     left_ee_rot: [31, 40]
+#     left_hand: [40, 56]
+#     misc: [[56, 68], [92, 93]] 
+#   action_slices:
+#     right_arm: [0, 6]
+#     right_hand: [6, 22]
+#     left_arm: [22, 28]
+#     left_hand: [28, 44]
+#   z_dim:
+#     s: 32  # boxLift: 63-dim state (6+12+32+13) / 2
+#     a: 22
+#     sa: 54
 
 pickObject:
   obs_dim: 106
   action_dim: 44
-  language_instruction: "Pick up the two objects and place them in the tote."
+  # language_instruction: "Pick up the two objects and place them in the tote."
   state_slices:
     right_ee_pos: [0, 3]
     right_ee_rot: [3, 12]
@@ -45,7 +45,7 @@ pickObject:
 insertDrawer:
   obs_dim: 116
   action_dim: 44
-  language_instruction: "Pick up the object, place it into the drawer, and close the drawer."
+  # language_instruction: "Pick up the object, place it into the drawer, and close the drawer."
   state_slices:
     right_ee_pos: [0, 3]
     right_ee_rot: [3, 12]
@@ -67,7 +67,7 @@ insertDrawer:
 pouring:
   obs_dim: 115
   action_dim: 44
-  language_instruction: "Pick up the cup with the right hand, push the bowl under the cup with the left hand, and pour."
+  # language_instruction: "Pick up the cup with the right hand, push the bowl under the cup with the left hand, and pour."
   state_slices:
     right_ee_pos: [0, 3]
     right_ee_rot: [3, 12]
@@ -89,7 +89,7 @@ pouring:
 threading:
   obs_dim: 124
   action_dim: 44
-  language_instruction: "Pick up the cube with the right hand and the drill with the left hand, and thread them together."
+  # language_instruction: "Pick up the cube with the right hand and the drill with the left hand, and thread them together."
   state_slices:
     right_ee_pos: [0, 3]
     right_ee_rot: [3, 12]
