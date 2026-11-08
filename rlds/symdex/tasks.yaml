@@ -23,7 +23,7 @@
 pickObject:
   obs_dim: 106
   action_dim: 44
-  # language_instruction: "Pick up the two objects and place them in the tote."
+  language_instruction: "Pick up the two objects and place them in the tote."
   state_slices:
     right_ee_pos: [0, 3]
     right_ee_rot: [3, 12]
@@ -45,7 +45,7 @@ pickObject:
 insertDrawer:
   obs_dim: 116
   action_dim: 44
-  # language_instruction: "Pick up the object, place it into the drawer, and close the drawer."
+  language_instruction: "Pick up the object, place it into the drawer, and close the drawer."
   state_slices:
     right_ee_pos: [0, 3]
     right_ee_rot: [3, 12]
@@ -67,7 +67,7 @@ insertDrawer:
 pouring:
   obs_dim: 115
   action_dim: 44
-  # language_instruction: "Pick up the cup with the right hand, push the bowl under the cup with the left hand, and pour."
+  language_instruction: "Pick up the cup with the right hand, push the bowl under the cup with the left hand, and pour."
   state_slices:
     right_ee_pos: [0, 3]
     right_ee_rot: [3, 12]
@@ -89,7 +89,7 @@ pouring:
 threading:
   obs_dim: 124
   action_dim: 44
-  # language_instruction: "Pick up the cube with the right hand and the drill with the left hand, and thread them together."
+  language_instruction: "Pick up the cube with the right hand and the drill with the left hand, and thread them together."
   state_slices:
     right_ee_pos: [0, 3]
     right_ee_rot: [3, 12]

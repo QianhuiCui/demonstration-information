@@ -9,7 +9,7 @@ import tensorflow_datasets as tfds
 
 QUALITY_SCORES = {"expert": 3.0, "okay": 2.0, "mixture": 1.5, "poor": 1.0}
 _TASK_YAML = os.path.join(os.path.dirname(__file__), "tasks.yaml")
-VAL_FRACTION = 0.1
+VAL_FRACTION = 0.2
 SPLIT_SEED = 0
 
 
@@ -22,19 +22,19 @@ def _load_builder_configs():
             task=task_name,
             obs_dim=cfg["obs_dim"],
             action_dim=cfg["action_dim"],
-            # language_instruction=cfg["language_instruction"],
+            language_instruction=cfg["language_instruction"],
         )
         for task_name, cfg in tasks.items()
     ]
 
 
 class SymDexConfig(tfds.core.BuilderConfig):
-    def __init__(self, *, task: str, obs_dim: int, action_dim: int, **kwargs):
+    def __init__(self, *, task: str, obs_dim: int, action_dim: int, language_instruction: str, **kwargs):
         super().__init__(**kwargs)
         self.task = task
         self.obs_dim = obs_dim
         self.action_dim = action_dim
-        # self.language_instruction = language_instruction
+        self.language_instruction = language_instruction
 
 
 class SymDex(tfds.core.GeneratorBasedBuilder):
@@ -111,7 +111,6 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
                 for episode_key in f.keys():
                     meta=f[episode_key].get("epi_meta")
                     operator = int(meta.attrs["operator"]) if meta is not None and "operator" in meta.attrs else -1
-                    lang = meta.attrs.get("language_instruction", "") if meta is not None else ""
                     data = f[episode_key]["offline_data"]
                     policy_obs = data["observations"]["policy"][:].astype(np.float32)
                     vision_obs = data["observations"]["vision"][:]
@@ -131,7 +130,7 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
                                             is_first=t == 0,
                                             is_last=t == length - 1,
                                             is_terminal=bool(terminals[t]),
-                                            language_instruction=lang,))
+                                            language_instruction=cfg.language_instruction,))
                     metadata = dict(file_path=file_path,
                                     ep_idx=ep_idx,
                                     quality_score=quality_score,
