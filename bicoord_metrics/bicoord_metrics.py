@@ -13,90 +13,102 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string("data_dir", None, "Task root holding expert/okay/poor/mixture subfolders.", required=True)
 flags.DEFINE_list("splits", ["expert", "okay", "poor", "mixture"], "Quality-tier subfolder names to look for under --data_dir.")
 flags.DEFINE_bool("verbose", False, "Print per-episode metrics in addition to the per-split aggregate.")
-flags.DEFINE_string("task", None, "Task name; must be a key in --config.", required=True)
+flags.DEFINE_list("task", None, "Task name(s) from --config. With several tasks, --data_dir is the root holding one folder per task.", required=True)
 flags.DEFINE_string(
     "config",
     os.path.join(os.path.dirname(__file__), "tasks.yaml"),
     "Path to the per-task obs-layout / grasp-threshold config.",
 )
 flags.DEFINE_integer("window_size", 20, "Sliding-window length (timesteps) for the windowed STI curve.")
-flags.DEFINE_integer("window_stride", 5, "Stride between consecutive windows.")
+flags.DEFINE_integer("window_stride", 10, "Stride between consecutive windows.")
 flags.DEFINE_string("plot_dir", None,  "If set, save per-split windowed-STI plots here.")
 
 
-def _plot_windowed_sti(curves_by_split: dict, plot_dir: str, task: str):
+def _plot_windowed_sti(curves, plot_dir):
     os.makedirs(plot_dir, exist_ok=True)
     grid = np.linspace(0, 1, 50)
+    tasks = list(curves)
+    splits = list(dict.fromkeys(split for task in tasks for split in curves[task]))
 
-    for split_name, curves in curves_by_split.items():
-        plt.figure(figsize=(5, 4))
-        interpolated = []
-        for t_frac, sti_curve in curves:
-            plt.plot(t_frac, sti_curve, color="tab:blue", alpha=0.15, linewidth=1)
-            interpolated.append(np.interp(grid, t_frac, sti_curve))
-        plt.plot(grid, np.mean(interpolated, axis=0), color="tab:blue", linewidth=2.5, label=f"mean (n={len(curves)})")
-        plt.xlabel("Fraction of episode completed")
+    # colors = {"expert": "tab:blue", "okay": "tab:orange", "poor": "tab:green", "mixture": "tab:red"}
+    # task_palette = ["tab:red", "tab:orange", "tab:brown", "tab:green", "tab:blue", "tab:olive"]
+    # colors.update({task: task_palette[i % len(task_palette)] for i, task in enumerate(tasks)})
+
+    # one figure per task, one line per quality group
+    figures = [(f"{task}_by_split", task, curves[task]) for task in tasks]
+    # one figure per quality group, one line per task
+    if len(tasks) > 1:
+        figures += [(f"{split}_by_task", split, {task: curves[task][split] for task in tasks if split in curves[task]}) for split in splits]
+
+    for name, title, lines in figures:
+        plt.figure(figsize=(6, 4))
+        for label, group in lines.items():
+            y = np.array([np.interp(grid, t_frac, sti) for t_frac, sti in group])
+            mean, std = y.mean(axis=0), y.std(axis=0)
+            (line,) = plt.plot(grid, mean, linewidth=2.2, label=f"{label} (n={len(y)})")
+            plt.fill_between(grid, mean - std, mean + std, color=line.get_color(), alpha=0.15, linewidth=0)
+            # (line,) = plt.plot(grid, mean, color=colors.get(label), linewidth=2.2, label=f"{label} (n={len(y)})")
+            # plt.fill_between(grid, mean - std, mean + std, color=line.get_color(), alpha=0.15, linewidth=0)        
+        plt.xlabel("Fraction of episode length")
         plt.ylabel("Windowed STI (%)")
-        plt.title(f"{task} - {split_name}")
-        plt.legend(frameon=False)
+        plt.title(f"{title} (mean +/- std)")
+        plt.legend(frameon=False)  
         plt.tight_layout()
-        out_path = os.path.join(plot_dir, f"{task}_{split_name}_windowed_sti.png")
+        out_path = os.path.join(plot_dir, f"{name}_windowed_sti.png")
         plt.savefig(out_path, dpi=150)
         plt.close()
         print(f"Saved {out_path}")
 
 
-def _collect_splits(root: str) -> list:
+def _collect_splits(root):
     split_dirs = [(s, os.path.join(root, s)) for s in FLAGS.splits if os.path.isdir(os.path.join(root, s))]
     return split_dirs if split_dirs else [("all", root)]  # fall back: treat data_dir as one split
 
 
 def main(_):
-    task_cfg = _load_task_config(FLAGS.config, FLAGS.task)
-
-    per_episode = []
-    curves_by_split = {}
-    for split_name, split_dir in _collect_splits(FLAGS.data_dir):
-        paths = sorted(glob.glob(os.path.join(split_dir, "*.h5")))
-        if not paths:
-            print(f"Warning: no .h5 files found in {split_dir}, skipping.")
-            continue
-        for path in paths:
-            with h5py.File(path, "r") as f:
-                for episode_key in f.keys():
-                    policy_obs = f[episode_key]["offline_data"]["observations"]["policy"][:]
-                    dist, both_moving = _episode_masks(policy_obs, task_cfg)
-
-                    metrics = reduce_metrics(dist, both_moving, len(policy_obs))
-                    metrics["file"] = os.path.basename(path)
-                    metrics["split"] = split_name
-                    per_episode.append(metrics)
-
-                    if FLAGS.plot_dir:
-                        curve = compute_windowed_sti(dist, both_moving, FLAGS.window_size, FLAGS.window_stride)
-                        curves_by_split.setdefault(split_name, []).append(curve)
-
-    assert len(per_episode) > 0, f"No .h5 files found under {FLAGS.data_dir} (looked in splits: {FLAGS.splits})"
-
     keys = ["ARD", "MRD", "SMP", "STI", "length"]
-    print(f"Computed metrics for {len(per_episode)} episodes under {FLAGS.data_dir} (task={FLAGS.task})\n")
+    curves = {}
+    for task in FLAGS.task:
+        task_cfg = _load_task_config(FLAGS.config, task)
+        task_dir = os.path.join(FLAGS.data_dir, task)
 
-    if FLAGS.verbose:
-        for metrics in per_episode:
-            print(f"[{metrics['split']}]", metrics["file"], {k: round(metrics[k], 2) for k in keys})
-        print()
+        episode = []
+        for split_name, split_dir in _collect_splits(task_dir):
+            paths = sorted(glob.glob(os.path.join(split_dir, "*.h5")))
+            if not paths:
+                print(f"Warning: no .h5 files found in {split_dir}.")
+                continue
+            for path in paths:
+                with h5py.File(path, "r") as f:
+                    for ep_key in f.keys():
+                        policy_obs = f[ep_key]["offline_data"]["observations"]["policy"][:]
+                        dist, both_moving = _episode_masks(policy_obs, task_cfg)
+                        metrics = reduce_metrics(dist, both_moving, len(policy_obs))
+                        metrics["file"] = os.path.basename(path)
+                        metrics["split"] = split_name
+                        episode.append(metrics)
 
-    print("Per-split aggregate (mean +/- std over episodes):")
-    seen_splits = dict.fromkeys(m["split"] for m in per_episode)  # preserve first-seen order
-    for split_name in seen_splits:
-        split_metrics = [m for m in per_episode if m["split"] == split_name]
-        print(f"  [{split_name}] n={len(split_metrics)}")
-        for k in keys:
-            values = np.array([m[k] for m in split_metrics])
-            print(f"    {k}: {values.mean():.2f} +/- {values.std():.2f}")
+                        curve = compute_windowed_sti(dist, both_moving, FLAGS.window_size, FLAGS.window_stride)
+                        curves.setdefault(task, {}).setdefault(split_name, []).append(curve)
+
+        assert len(episode) > 0, f"No .h5 files found under {task_dir} (looked in splits: {FLAGS.splits})"
+        print(f"\n{task}: {len(episode)} episodes under {task_dir}")
+
+        if FLAGS.verbose:
+            for metrics in episode:
+                print(f"[{metrics['split']}]", metrics["file"], {k: round(metrics[k], 2) for k in keys})
+            print()
+
+        print("Per-split aggregate (mean +/- std over episodes):")
+        for split_name in curves[task]:
+            split_metrics = [m for m in episode if m["split"] == split_name]
+            print(f"  [{split_name}] n={len(split_metrics)}")
+            for k in keys:
+                values = np.array([m[k] for m in split_metrics])
+                print(f"{k}: {values.mean():.2f} +/- {values.std():.2f}")
 
     if FLAGS.plot_dir:
-        _plot_windowed_sti(curves_by_split, FLAGS.plot_dir, FLAGS.task)
+        _plot_windowed_sti(curves, FLAGS.plot_dir)              
 
 
 if __name__ == "__main__":
