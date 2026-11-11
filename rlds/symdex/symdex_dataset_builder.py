@@ -87,8 +87,9 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
 
     def _split_generators(self, dl_manager: tfds.download.DownloadManager):
         root = dl_manager.manual_dir
-        train_paths, val_paths = [], []
+        train_eps, val_eps = [], []
         rng = np.random.RandomState(SPLIT_SEED)
+        ep_idx = 0  # global, split-independent episode index
 
         for quality_name, score in QUALITY_SCORES.items():
             split_dir = os.path.join(root, quality_name)
@@ -97,43 +98,44 @@ class SymDex(tfds.core.GeneratorBasedBuilder):
             files = sorted(tf.io.gfile.glob(os.path.join(split_dir, "*.h5")))
             is_val = rng.random_sample(len(files)) < VAL_FRACTION
             for file_path, val in zip(files, is_val):
-                (val_paths if val else train_paths).append((file_path, score))
-
-        assert train_paths or val_paths, f"No .h5 files found under {root}/{{{','.join(QUALITY_SCORES)}}}"
-        return {"train": self._generate_examples(train_paths),
-                "val": self._generate_examples(val_paths),}
-
-    def _generate_examples(self, paths) -> Iterator[Tuple[str, Any]]:
-        cfg = self.builder_config
-        ep_idx = 0
-        for file_path, quality_score in paths:
-            with h5py.File(file_path, "r") as f:
-                for episode_key in f.keys():
-                    meta=f[episode_key].get("epi_meta")
-                    operator = int(meta.attrs["operator"]) if meta is not None and "operator" in meta.attrs else -1
-                    data = f[episode_key]["offline_data"]
-                    policy_obs = data["observations"]["policy"][:].astype(np.float32)
-                    vision_obs = data["observations"]["vision"][:]
-                    actions = data["actions"][:].astype(np.float32)
-                    terminals = data["terminals"][:]
-                    length = policy_obs.shape[0]
-
-                    assert policy_obs.shape[-1] == cfg.obs_dim, (f"{file_path}/{episode_key}: expected obs_dim {cfg.obs_dim}, got {policy_obs.shape[-1]}")
-                    assert actions.shape[-1] == cfg.action_dim, (f"{file_path}/{episode_key}: expected action_dim {cfg.action_dim}, got {actions.shape[-1]}")
-
-                    episode = []
-                    for t in range(length):
-                        episode.append(dict(observation=dict(state=policy_obs[t], image=vision_obs[t]),
-                                            action=actions[t],
-                                            discount=1.0,
-                                            reward=1.0 if bool(terminals[t]) else 0.0,
-                                            is_first=t == 0,
-                                            is_last=t == length - 1,
-                                            is_terminal=bool(terminals[t]),
-                                            language_instruction=cfg.language_instruction,))
-                    metadata = dict(file_path=file_path,
-                                    ep_idx=ep_idx,
-                                    quality_score=quality_score,
-                                    operator=operator)
+                with h5py.File(file_path, "r") as f:
+                    episode_keys = list(f.keys())
+                for episode_key in episode_keys:
+                    (val_eps if val else train_eps).append((file_path, episode_key, score, ep_idx))
                     ep_idx += 1
-                    yield f"{os.path.basename(file_path)}_{episode_key}", dict(steps=episode, episode_metadata=metadata)
+
+        assert train_eps or val_eps, f"No .h5 files found under {root}/{{{','.join(QUALITY_SCORES)}}}"
+        return {"train": self._generate_examples(train_eps),
+                "val": self._generate_examples(val_eps)}
+
+    def _generate_examples(self, episodes) -> Iterator[Tuple[str, Any]]:
+        cfg = self.builder_config
+        for file_path, episode_key, quality_score, ep_idx in episodes:
+            with h5py.File(file_path, "r") as f:
+                meta = f[episode_key].get("epi_meta")
+                operator = int(meta.attrs["operator"]) if meta is not None and "operator" in meta.attrs else -1
+                data = f[episode_key]["offline_data"]
+                policy_obs = data["observations"]["policy"][:].astype(np.float32)
+                vision_obs = data["observations"]["vision"][:]
+                actions = data["actions"][:].astype(np.float32)
+                terminals = data["terminals"][:]
+                length = policy_obs.shape[0]
+
+                assert policy_obs.shape[-1] == cfg.obs_dim, (f"{file_path}/{episode_key}: expected obs_dim {cfg.obs_dim}, got {policy_obs.shape[-1]}")
+                assert actions.shape[-1] == cfg.action_dim, (f"{file_path}/{episode_key}: expected action_dim {cfg.action_dim}, got {actions.shape[-1]}")
+
+                episode = []
+                for t in range(length):
+                    episode.append(dict(observation=dict(state=policy_obs[t], image=vision_obs[t]),
+                                        action=actions[t],
+                                        discount=1.0,
+                                        reward=1.0 if bool(terminals[t]) else 0.0,
+                                        is_first=t == 0,
+                                        is_last=t == length - 1,
+                                        is_terminal=bool(terminals[t]),
+                                        language_instruction=cfg.language_instruction,))
+                metadata = dict(file_path=file_path,
+                                ep_idx=ep_idx,
+                                quality_score=quality_score,
+                                operator=operator)
+            yield f"{os.path.basename(file_path)}_{episode_key}", dict(steps=episode, episode_metadata=metadata)
