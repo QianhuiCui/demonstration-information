@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# One task:   bash bicoord_metrics/run_bicoord.sh pickObject
-# All tasks:  bash bicoord_metrics/run_bicoord.sh
+# One task:   bash bicoord_metrics/run.sh pickObject
+# All tasks:  bash bicoord_metrics/run.sh
 set -euo pipefail
 
 DATA_ROOT=/home/qianhui/trajectories_symdex
 ALL_TASKS=insertDrawer,pickObject,pouring,threading
 TASKS="${1:-$ALL_TASKS}"
 
-python bicoord_metrics/bicoord_metrics.py \
+python bicoord_metrics/plotting.py \
   --data_dir "$DATA_ROOT" \
   --task "$TASKS" \
+  --window_size 20 \
+  --window_stride 5 \
+  --max_lag 5 \
   --plot_dir ./bicoord_metrics/plots

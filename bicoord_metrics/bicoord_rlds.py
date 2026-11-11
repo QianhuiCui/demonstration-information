@@ -12,7 +12,7 @@ import tensorflow_datasets as tfds
 from absl import app, flags
 from scipy import stats
 
-from bicoord_core import _load_task_config, _episode_masks, reduce_metrics, compute_windowed_sti
+from core import _load_task_config, _episode_masks, reduce_metrics, compute_windowed_sti
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("data_dir", None, ".../symdex_rlds/sym_dex/<task>/1.0.0", required=True)
@@ -22,16 +22,17 @@ flags.DEFINE_string("config", os.path.join(os.path.dirname(__file__), "tasks.yam
                     "per-task obs-layout / grasp-threshold config.")
 flags.DEFINE_string("path", None, "directory to write bicoord.pkl into; if unset, only print.")
 flags.DEFINE_bool("verbose", True, "print per-episode metrics as well as the per-tier aggregate.")
-flags.DEFINE_integer("window", 20, "windowed-STI window length (frames); matches bicoord_metrics.py.")
-flags.DEFINE_integer("stride", 5, "windowed-STI stride (frames); matches bicoord_metrics.py.")
+flags.DEFINE_integer("window", 20, "windowed-STI window length (frames); matches plotting.py.")
+flags.DEFINE_integer("stride", 5, "windowed-STI stride (frames); matches plotting.py.")
 
 _TIER = {3.0: "expert", 2.0: "okay", 1.5: "mixture", 1.0: "poor"}
 _KEYS = ["ARD", "MRD", "SMP", "STI", "length"]
 
 
 def _episode_obs(ep) -> np.ndarray:
-    """ep['steps'] is a nested tf.data.Dataset -> (T, obs_dim) float array, in step order."""
-    return np.stack([s["observation"]["state"].numpy() for s in ep["steps"]])
+    """ep['steps'] is a nested tf.data.Dataset -> (T, obs_dim) float array, in step order.
+    The last step is a post-termination reset frame (objects/hands jump), so it is dropped."""
+    return np.stack([s["observation"]["state"].numpy() for s in ep["steps"]])[:-1]
 
 
 def main(_):
