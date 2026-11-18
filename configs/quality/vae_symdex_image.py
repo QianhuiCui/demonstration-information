@@ -11,10 +11,11 @@ from openx.networks.core import Concatenate, MultiDecoder, MultiEncoder
 from openx.utils.spec import ModuleSpec
 
 
-def get_config(config_str="boxLift,s,1"):
-    task, config_type, seed = config_str.split(",")
+def get_config(config_str="pickObject,s,1,train"):
+    task, config_type, seed, split = config_str.split(",")
     seed = int(seed)
     assert config_type in {"s", "a", "sa"}
+    assert split in {"train", "all"}
     task_cfg = _load_tasks(task)
 
     encoder_keys = {
@@ -37,11 +38,6 @@ def get_config(config_str="boxLift,s,1"):
         },
     }[config_type]
 
-    # z_dim = {
-    #     "s": 32,   # boxLift: 63-dim state (6+12+32+13) / 2
-    #     "a": 22,   # half of the raw 44-dim action (unaffected by the MISC fix)
-    #     "sa": 54,  # boxLift
-    # }[config_type]
     z_dim = task_cfg["z_dim"][config_type]
 
     weights = {
@@ -72,7 +68,7 @@ def get_config(config_str="boxLift,s,1"):
         datasets={
             task: dict(
                 path="/home/qianhui/deminf/symdex_rlds/sym_dex/{task}/1.0.0".format(task=task),
-                train_split="train",
+                train_split="train" if split == "train" else "train+val",
                 val_split="val",
                 transform=ModuleSpec.create(symdex_dataset_transform, task=task),
             ),
@@ -108,6 +104,11 @@ def get_config(config_str="boxLift,s,1"):
 
     lr_schedule = ModuleSpec.create(optax.constant_schedule, 0.0001)
     optimizer = ModuleSpec.create(optax.adam)
+    # steps = {"s": 40000, "a": 80000, "sa": 80000}[config_type]
+    if split == "all":
+        steps = {"s": 40000, "a": 80000, "sa": 80000}[config_type]
+    else:
+        steps = {"s": 50000, "a": 100000, "sa": 100000}[config_type]
 
     return ConfigDict(
         dict(
@@ -116,7 +117,7 @@ def get_config(config_str="boxLift,s,1"):
             dataloader=dataloader,
             optimizer=optimizer,
             lr_schedule=lr_schedule,
-            steps=25000,   # based on dataset size
+            steps=steps,
             log_freq=500,
             val_freq=2500,
             save_freq=2500,

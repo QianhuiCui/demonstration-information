@@ -18,9 +18,10 @@ from openx.networks.core import Concatenate, MultiDecoder, MultiEncoder
 from openx.utils.spec import ModuleSpec
 
 
-def get_config(config_str="boxLift,s,1"):
-    task, config_type, seed = config_str.split(",")
+def get_config(config_str="pickObject,s,1,train"):
+    task, config_type, seed, split = config_str.split(",")
     assert config_type in {"s", "a", "sa"}
+    assert split in {"train", "all"}
 
     # "s" -> S_left  (observation.state slot)
     # "a" -> S_right (action slot)
@@ -30,9 +31,9 @@ def get_config(config_str="boxLift,s,1"):
         "sa": {"observation->state": None, "action": None},
     }[config_type]
     z_dim = {  # per-arm state is 25-dim (EE_POS 3 + EE_ROT6D 6 + HAND_POS 16)
-        "s": 8,
-        "a": 8,
-        "sa": 16,
+        "s": 13,
+        "a": 13,
+        "sa": 26,
     }[config_type]
     seed = int(seed)
 
@@ -42,14 +43,12 @@ def get_config(config_str="boxLift,s,1"):
             "state": {
                 StateEncoding.EE_POS: NormalizationType.GAUSSIAN,
                 StateEncoding.EE_ROT6D: NormalizationType.GAUSSIAN,
-                # StateEncoding.HAND_POS: NormalizationType.GAUSSIAN,
             },
         },
         "action": {
             "desired_delta": {
                 StateEncoding.EE_POS: NormalizationType.GAUSSIAN,
                 StateEncoding.EE_ROT6D: NormalizationType.GAUSSIAN,
-                # StateEncoding.HAND_POS: NormalizationType.GAUSSIAN,
             },
         },
     }
@@ -58,12 +57,9 @@ def get_config(config_str="boxLift,s,1"):
         datasets={
             task: dict(
                 path="/home/qianhui/deminf/symdex_rlds/sym_dex/{task}/1.0.0".format(task=task),
-                train_split="train",
+                train_split="train" if split == "train" else "train+val",
                 val_split="val",
-                transform=ModuleSpec.create(
-                    symdex_lr_dataset_transform, task=task,
-                    # hand_pca="rlds/symdex/hand_pca_{task}_k6.npz".format(task=task),
-                ),
+                transform=ModuleSpec.create(symdex_lr_dataset_transform, task=task),
             ),
         },
         n_obs=1,
@@ -95,6 +91,10 @@ def get_config(config_str="boxLift,s,1"):
 
     lr_schedule = ModuleSpec.create(optax.constant_schedule, 0.0001)
     optimizer = ModuleSpec.create(optax.adam)
+    if split == "all":
+        steps = {"s": 40000, "a": 40000, "sa": 40000}[config_type]
+    else:
+        steps = {"s": 100000, "a": 100000, "sa": 100000}[config_type]
 
     return ConfigDict(
         dict(
@@ -103,10 +103,10 @@ def get_config(config_str="boxLift,s,1"):
             dataloader=dataloader,
             optimizer=optimizer,
             lr_schedule=lr_schedule,
-            steps=5000,   # based on dataset size
-            log_freq=100,
-            val_freq=250,
-            save_freq=250,
+            steps=steps,
+            log_freq=500,
+            val_freq=2500,
+            save_freq=2500,
             val_steps=25,
             seed=seed,
         )

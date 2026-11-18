@@ -7,27 +7,7 @@ import tensorflow as tf
 
 from openx.data.utils import RobotType, StateEncoding, rmat_to_rot6d
 
-_REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 _TASKS_YAML = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "rlds", "symdex", "tasks.yaml"))
-_HAND_PCA_CACHE = {}
-
-
-def _load_hand_pca(path: str):
-    """Loads {mean_left, mean_right, components} saved by tools/fit_hand_pca.py as numpy
-    arrays. Relative paths resolve against the repo root. Cached across calls."""
-    if path not in _HAND_PCA_CACHE:
-        abs_path = path if os.path.isabs(path) else os.path.join(_REPO_ROOT, path)
-        with np.load(abs_path) as p:
-            _HAND_PCA_CACHE[path] = {k: p[k].astype(np.float32) for k in ("mean_left", "mean_right", "components")}
-    return _HAND_PCA_CACHE[path]
-
-
-def _hand_feature(hand, hand_pca: str | None, arm: str):
-    """Raw 16-DOF hand joints, or their k-dim PCA synergy projection (arm in {'left','right'})."""
-    if hand_pca is None:
-        return hand
-    p = _load_hand_pca(hand_pca)
-    return tf.linalg.matmul(hand - p[f"mean_{arm}"], p["components"], transpose_b=True)  # (..., k)
 
 
 def _load_tasks(task: str):
@@ -42,9 +22,6 @@ def _slice(bounds):
 
 
 def _slices(bounds):
-    """Normalizes a slice spec into a list of slice() objects. Accepts either a single
-    [start, end] pair (most fields) or a list of such pairs (for a field assembled from
-    multiple disjoint ranges, e.g. boxLift's MISC after dropping redundant fields)."""
     if isinstance(bounds[0], int):
         bounds = [bounds]
     return [slice(b[0], b[1]) for b in bounds]
@@ -84,7 +61,7 @@ def symdex_dataset_transform(ep: Dict, task: str):
     return ep
 
 
-def symdex_lr_dataset_transform(ep: Dict, task: str, hand_pca: str | None = None):
+def symdex_lr_dataset_transform(ep: Dict, task: str):
     s = _load_tasks(task)["state_slices"]
     obs = ep["observation"]["state"]
 
@@ -92,14 +69,12 @@ def symdex_lr_dataset_transform(ep: Dict, task: str, hand_pca: str | None = None
         "state": {
             StateEncoding.EE_POS:   obs[..., _slice(s["left_ee_pos"])],
             StateEncoding.EE_ROT6D: _rot6d(obs[..., _slice(s["left_ee_rot"])]),
-            StateEncoding.HAND_POS: _hand_feature(obs[..., _slice(s["left_hand"])], hand_pca, "left"),
         },
     }
     state_r = {
         "desired_delta": {
             StateEncoding.EE_POS:   obs[..., _slice(s["right_ee_pos"])],
             StateEncoding.EE_ROT6D: _rot6d(obs[..., _slice(s["right_ee_rot"])]),
-            StateEncoding.HAND_POS: _hand_feature(obs[..., _slice(s["right_hand"])], hand_pca, "right"),
         },
     }
 
